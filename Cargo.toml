@@ -10,4 +10,4 @@ serde_json = "1.0.140"
 serenity = "0.12.4"
 thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["full"] }
-untwine = "0.8.3"
+untwine = { git = "https://github.com/boxbeam/untwine", rev = "535f0d2" }

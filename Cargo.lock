@@ -1862,8 +1862,7 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 [[package]]
 name = "untwine"
 version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a99be35058cb8480000352a729c62708ba5c1e62854f11d6b3b21a12da69cdb8"
+source = "git+https://github.com/boxbeam/untwine?rev=535f0d2#535f0d24ea22e1e2a39f8607835c677f480d1e37"
 dependencies = [
  "untwine_macros",
 ]
@@ -1871,8 +1870,7 @@ dependencies = [
 [[package]]
 name = "untwine_macros"
 version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1314297bad6ccbd9815bc34c97dc0656e9fae3ce1fd5cca6c662eab3d95bdce5"
+source = "git+https://github.com/boxbeam/untwine?rev=535f0d2#535f0d24ea22e1e2a39f8607835c677f480d1e37"
 dependencies = [
  "proc-macro2",
  "quote",
