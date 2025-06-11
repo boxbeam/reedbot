@@ -12,7 +12,7 @@ pub enum ParseTimeError {
     Untwine(#[from] ParserError),
     #[error("{0}")]
     ParseInt(#[from] ParseIntError),
-    #[error("Invalid weekday: String")]
+    #[error("Invalid weekday: {0}")]
     InvalidWeekday(String),
 }
 
@@ -61,7 +61,6 @@ parser! {
             | "Saturday"
             | "sunday"
             | "Sunday"
-
             >
         -> TimeModifier {
         TimeModifier::Weekday(match &*day.to_lowercase() {
