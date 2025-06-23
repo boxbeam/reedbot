@@ -107,6 +107,7 @@ enum CommandError {
 }
 
 async fn handle_command(user: UserId, command: Command) -> Result<String, CommandError> {
+    let preferences = get_preferences(user).await;
     let mut cache = REMINDERS.lock().await;
     use CommandError::*;
     match command {
@@ -128,7 +129,7 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             save();
             Ok(format!(
                 "Scheduled reminder for {} (#{id})",
-                format_time(&time)
+                format_time(&time, preferences.time_format)
             ))
         }
         Command::CancelReminder(id) => {
@@ -166,7 +167,7 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             for (id, reminder) in cache.get(&user).into_iter().flatten().enumerate() {
                 let mut line = format!(
                     "{id}: {} - {}",
-                    format_time(&reminder.time),
+                    format_time(&reminder.time, preferences.time_format),
                     &reminder.message
                 );
                 if let Some(interval) = &reminder.interval {
@@ -174,7 +175,7 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
                     for modifier in interval {
                         end = modifier.modify(end)?;
                     }
-                    let end = format_time(&end);
+                    let end = format_time(&end, preferences.time_format);
                     line.push_str(" (Repeats at ");
                     line.push_str(&end);
                     line.push_str(")");
@@ -340,8 +341,11 @@ async fn process_reminders(http: &Http) {
     save();
 }
 
-fn format_time(time: &Zoned) -> String {
-    time.strftime("%A, %B %d, %Y at %-I:%M%P %Z").to_string()
+fn format_time(time: &Zoned, format: TimeFormat) -> String {
+    match format {
+        TimeFormat::H12 => time.strftime("%A, %B %d, %Y at %-I:%M%P %Z").to_string(),
+        TimeFormat::H24 => time.strftime("%A, %B %d, %Y at %-H:%M %Z").to_string(),
+    }
 }
 
 struct Handler;
