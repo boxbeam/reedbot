@@ -60,13 +60,14 @@ parser! {
 
     delays: delays=delay+ -> TimeModifier { TimeModifier::Delay(delays.into_iter().sum()) }
 
-    time_of_day: hour=num minute=(":" num)? ampm=<("am"|"pm")> -> TimeModifier {
+    time_of_day: hour=num minute=(":" num)? specifier=<("am"|"pm"|"h")?> -> TimeModifier {
         let minute = minute.unwrap_or(0);
-        let pm = ampm == "pm";
-        let mut hour = hour % 12;
-        if pm {
-            hour += 12;
-        }
+        let hour = match specifier {
+            "am" => hour % 12,
+            "pm" => (hour % 12) + 12,
+            "h" | "" => hour % 24,
+            _ => unreachable!("Unexpected time of day specifier")
+        };
         TimeModifier::TimeOfDay { minute, hour }
     }
 
