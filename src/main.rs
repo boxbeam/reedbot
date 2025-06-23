@@ -80,7 +80,6 @@ impl Default for Preferences {
 
 type ReminderCache = Mutex<HashMap<UserId, Vec<Reminder>>>;
 static REMINDERS: LazyLock<ReminderCache> = LazyLock::new(Default::default);
-//static TIMEZONES: LazyLock<Mutex<HashMap<UserId, String>>> = LazyLock::new(Default::default);
 static PREFERENCES: LazyLock<RwLock<HashMap<UserId, Preferences>>> =
     LazyLock::new(Default::default);
 
