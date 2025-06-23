@@ -198,6 +198,7 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             "1w1h5m3s - 1 week, 1 hour, 5 minutes, 1 second from now",
             "3pm - 3:00 PM",
             "3:30pm - 3:30 PM",
+            "21:00 - 9:00 PM",
             "2001-03-06 - March 6th, 2001",
             "1mo - 1 month",
             "tuesday - Tuesday",
