@@ -7,7 +7,7 @@ use serenity::{
 };
 use std::{collections::HashMap, fmt::Display, sync::LazyLock, time::Duration};
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use untwine::prelude::ParserContext;
 
 mod command;
@@ -54,9 +54,49 @@ struct Reminder {
     interval: Option<Vec<TimeModifier>>,
 }
 
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy)]
+enum TimeFormat {
+    #[serde(rename = "12h")]
+    #[default]
+    H12,
+    #[serde(rename = "24h")]
+    H24,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Preferences {
+    timezone: String,
+    time_format: TimeFormat,
+}
+
+impl Default for Preferences {
+    fn default() -> Self {
+        Preferences {
+            timezone: "America/New_York".into(),
+            time_format: TimeFormat::default(),
+        }
+    }
+}
+
 type ReminderCache = Mutex<HashMap<UserId, Vec<Reminder>>>;
 static REMINDERS: LazyLock<ReminderCache> = LazyLock::new(Default::default);
-static TIMEZONES: LazyLock<Mutex<HashMap<UserId, String>>> = LazyLock::new(Default::default);
+//static TIMEZONES: LazyLock<Mutex<HashMap<UserId, String>>> = LazyLock::new(Default::default);
+static PREFERENCES: LazyLock<RwLock<HashMap<UserId, Preferences>>> =
+    LazyLock::new(Default::default);
+
+async fn get_preferences(user: UserId) -> Preferences {
+    PREFERENCES
+        .read()
+        .await
+        .get(&user)
+        .cloned()
+        .unwrap_or_default()
+}
+
+async fn set_preferences(user: UserId, cb: impl FnOnce(&mut Preferences)) {
+    let mut map = PREFERENCES.write().await;
+    cb(map.entry(user).or_default());
+}
 
 #[derive(Error, Debug)]
 enum CommandError {
@@ -148,8 +188,7 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             Ok(lines.join("\n"))
         }
         Command::SetTimezone(timezone) => {
-            let mut timezones = TIMEZONES.lock().await;
-            timezones.insert(user, timezone);
+            set_preferences(user, |prefs| prefs.timezone = timezone).await;
             save();
             Ok("Timezone set".into())
         }
@@ -178,7 +217,8 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
 }
 
 const SAVE_FILE: &str = "reminders.json";
-const TIMEZONE_FILE: &str = "timezones.json";
+const PREFERENCES_FILE: &str = "preferences.json";
+const LEGACY_TIMEZONE_FILE: &str = "timezones.json";
 
 #[derive(Serialize, Deserialize)]
 struct UserReminder {
@@ -186,7 +226,7 @@ struct UserReminder {
     reminder: Reminder,
 }
 
-async fn load() {
+async fn load_reminders() {
     if !tokio::fs::try_exists(SAVE_FILE).await.unwrap() {
         return;
     }
@@ -205,12 +245,32 @@ async fn load() {
     for (_, list) in cache.iter_mut() {
         list.sort_by(|a, b| a.time.cmp(&b.time));
     }
+}
 
-    let Ok(timezones_json) = tokio::fs::read_to_string(TIMEZONE_FILE).await else {
+async fn load_preferences() {
+    let Ok(preferences_json) = tokio::fs::read_to_string(PREFERENCES_FILE).await else {
         return;
     };
-    let timezones = serde_json::from_str(&timezones_json).unwrap();
-    *TIMEZONES.lock().await = timezones;
+    let preferences = serde_json::from_str(&preferences_json).unwrap();
+    *PREFERENCES.write().await = preferences;
+}
+
+async fn recover_legacy_timezones() {
+    let Ok(timezones_json) = tokio::fs::read_to_string(LEGACY_TIMEZONE_FILE).await else {
+        return;
+    };
+    let timezones: HashMap<UserId, String> = serde_json::from_str(&timezones_json).unwrap();
+    for (user, timezone) in timezones {
+        set_preferences(user, |prefs| prefs.timezone = timezone).await;
+    }
+    save();
+    let _ = tokio::fs::remove_file(LEGACY_TIMEZONE_FILE).await;
+}
+
+async fn load() {
+    load_reminders().await;
+    load_preferences().await;
+    recover_legacy_timezones().await;
 }
 
 fn save() {
@@ -229,8 +289,8 @@ fn save() {
         let reminders_json = serde_json::to_string(&all_reminders).unwrap();
         tokio::fs::write(SAVE_FILE, reminders_json).await.unwrap();
 
-        let timezones_json = serde_json::to_string(&*TIMEZONES.lock().await).unwrap();
-        tokio::fs::write(TIMEZONE_FILE, timezones_json)
+        let preferences_json = serde_json::to_string(&*PREFERENCES.read().await).unwrap();
+        tokio::fs::write(PREFERENCES_FILE, preferences_json)
             .await
             .unwrap();
     });
@@ -292,13 +352,10 @@ impl EventHandler for Handler {
             return;
         }
 
-        let timezones = TIMEZONES.lock().await;
-        let timezone = timezones
-            .get(&msg.author.id)
-            .map(|s| &**s)
-            .unwrap_or("America/New_York");
-        let timezone = jiff::tz::db().get(timezone).unwrap_or(TimeZone::system());
-        drop(timezones);
+        let preferences = get_preferences(msg.author.id).await;
+        let timezone = jiff::tz::db()
+            .get(&preferences.timezone)
+            .unwrap_or(TimeZone::system());
 
         let mut parser_context = ParserContext::new(&msg.content, timezone);
         let result = parser_context.result(command::command(&parser_context));
