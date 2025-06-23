@@ -95,6 +95,7 @@ async fn get_preferences(user: UserId) -> Preferences {
 async fn set_preferences(user: UserId, cb: impl FnOnce(&mut Preferences)) {
     let mut map = PREFERENCES.write().await;
     cb(map.entry(user).or_default());
+    save();
 }
 
 #[derive(Error, Debug)]
@@ -189,12 +190,10 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
         }
         Command::SetTimezone(timezone) => {
             set_preferences(user, |prefs| prefs.timezone = timezone).await;
-            save();
             Ok("Timezone set".into())
         }
         Command::SetTimeFormat(time_format) => {
             set_preferences(user, |prefs| prefs.time_format = time_format).await;
-            save();
             Ok("Time format set".into())
         }
         Command::Help => Ok([
@@ -270,7 +269,6 @@ async fn recover_legacy_timezones() {
     for (user, timezone) in timezones {
         set_preferences(user, |prefs| prefs.timezone = timezone).await;
     }
-    save();
     let _ = tokio::fs::remove_file(LEGACY_TIMEZONE_FILE).await;
 }
 
