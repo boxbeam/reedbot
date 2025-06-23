@@ -193,6 +193,11 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             save();
             Ok("Timezone set".into())
         }
+        Command::SetTimeFormat(time_format) => {
+            set_preferences(user, |prefs| prefs.time_format = time_format).await;
+            save();
+            Ok("Time format set".into())
+        }
         Command::Help => Ok([
             "Time modifier examples:",
             "1d - 1 day from now",
@@ -213,6 +218,7 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             "`$ci|clearinterval <id>` - Clear the interval of a reminder",
             "`$h|help` - Show help",
             "`$tz|timezone <timezone> - Set your timezone`",
+            "`$tf|timeformat <12h|24h> - Set your preferred time format`",
         ]
         .join("\n")),
     }
