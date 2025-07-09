@@ -377,7 +377,7 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
-        if msg.author.bot || msg.guild_id.is_some() {
+        if msg.author.bot || msg.guild_id.is_some() || !msg.content.starts_with("$") {
             return;
         }
 
