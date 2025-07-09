@@ -4,7 +4,7 @@ use jiff::{civil::Weekday, Zoned};
 use thiserror::Error;
 use untwine::prelude::*;
 
-use crate::TimeModifier;
+use crate::{TimeFormat, TimeModifier};
 
 #[derive(Error, Debug)]
 pub enum ParseTimeError {
@@ -20,6 +20,7 @@ pub enum Command {
     SetInterval(u64, Vec<TimeModifier>),
     ClearInterval(u64),
     SetTimezone(String),
+    SetTimeFormat(TimeFormat),
     ListReminders,
     Help,
 }
@@ -60,13 +61,14 @@ parser! {
 
     delays: delays=delay+ -> TimeModifier { TimeModifier::Delay(delays.into_iter().sum()) }
 
-    time_of_day: hour=num minute=(":" num)? ampm=<("am"|"pm")> -> TimeModifier {
+    time_of_day: hour=num minute=(":" num)? specifier=<("am"|"pm")?> -> TimeModifier {
         let minute = minute.unwrap_or(0);
-        let pm = ampm == "pm";
-        let mut hour = hour % 12;
-        if pm {
-            hour += 12;
-        }
+        let hour = match specifier {
+            "am" => hour % 12,
+            "pm" => (hour % 12) + 12,
+            "" => hour % 24,
+            _ => unreachable!("Unexpected time of day specifier")
+        };
         TimeModifier::TimeOfDay { minute, hour }
     }
 
@@ -76,6 +78,11 @@ parser! {
 
     modifier = (months | delays | time_of_day | date | weekday_modifier) -> TimeModifier;
 
+    time_format = match {
+        "12h" => TimeFormat::H12,
+        "24h" => TimeFormat::H24,
+    } -> TimeFormat;
+
     match_commands = match {
         ("r" | "remindme" | "reminder") " " time=time ";" " "? message=<.+> => Command::ScheduleReminder(time, message.to_string()),
         ("h" | "help") => Command::Help,
@@ -84,7 +91,8 @@ parser! {
         ("cancelreminder" | "cr") " " id=num => Command::CancelReminder(id),
         ("reminders" | "rs") => Command::ListReminders,
         ("r" | "remindme" | "reminder") " " time=time ";" " "? message=<.+> => Command::ScheduleReminder(time, message.to_string()),
-        ("tz" | "timezone") " " timezone=<.+> => Command::SetTimezone(timezone.to_string())
+        ("tz" | "timezone") " " timezone=<.+> => Command::SetTimezone(timezone.to_string()),
+        ("tf" | "timeformat") " " time_format=time_format => Command::SetTimeFormat(time_format)
     } -> Command;
 
     pub command = "$" match_commands -> Command;
