@@ -72,7 +72,10 @@ parser! {
         TimeModifier::TimeOfDay { minute, hour }
     }
 
-    date: year=num "-" month=num "-" day=num -> TimeModifier {
+    date: year=num? "-" month=num? "-" day=num -> TimeModifier {
+        let year = year.map(|year| year as i16);
+        let month = month.map(|month| month as i8);
+        let day = day as i8;
         TimeModifier::Date { year, month, day }
     }
 

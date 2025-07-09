@@ -16,8 +16,15 @@ mod command;
 pub enum TimeModifier {
     Delay(u64),
     Weekday(i8),
-    TimeOfDay { hour: u64, minute: u64 },
-    Date { year: u64, month: u64, day: u64 },
+    TimeOfDay {
+        hour: u64,
+        minute: u64,
+    },
+    Date {
+        year: Option<i16>,
+        month: Option<i8>,
+        day: i8,
+    },
     Months(u64),
 }
 
@@ -32,7 +39,9 @@ impl TimeModifier {
                 .at(*hour as i8, *minute as i8, 0, 0)
                 .to_zoned(datetime.time_zone().clone()),
             TimeModifier::Date { year, month, day } => {
-                jiff::civil::date(*year as i16, *month as i8, *day as i8)
+                let year = year.unwrap_or(datetime.year());
+                let month = month.unwrap_or(datetime.month());
+                jiff::civil::date(year, month, *day)
                     .at(datetime.hour(), datetime.minute(), datetime.second(), 0)
                     .to_zoned(datetime.time_zone().clone())
             }
