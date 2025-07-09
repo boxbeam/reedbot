@@ -27,7 +27,7 @@ pub enum Command {
 
 pub enum Modifier {
     TimeModifier(TimeModifier),
-    ModifierPermutations(Vec<TimeModifier>),
+    ModifierPermutations(Vec<Vec<TimeModifier>>),
 }
 
 impl Modifier {
@@ -44,7 +44,7 @@ impl Modifier {
                     let all_variants = std::mem::take(&mut final_modifiers);
                     for permutation in time_modifiers {
                         let copied_modifiers = all_variants.iter().cloned().map(|mut v| {
-                            v.push(permutation.clone());
+                            v.extend(permutation.clone());
                             v
                         });
                         final_modifiers.extend(copied_modifiers);
@@ -113,7 +113,7 @@ parser! {
 
     time_modifier = (months | delays | time_of_day | date | weekday_modifier) -> TimeModifier;
 
-    modifier_permutations = "(" time_modifier$comma+ ")" -> Vec<TimeModifier>;
+    modifier_permutations = "(" (time_modifier$" "+)$comma+ ")" -> Vec<Vec<TimeModifier>>;
 
     modifier = match {
         modifier=time_modifier => Modifier::TimeModifier(modifier),
