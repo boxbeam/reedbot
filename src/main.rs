@@ -124,26 +124,31 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             let list = cache.entry(user).or_default();
 
             let mut lines = vec![];
+
             for time in times {
                 let reminder = Reminder {
                     time: time.clone(),
                     message: message.clone(),
                     interval: None,
                 };
+
                 list.push(reminder);
                 list.sort_by(|a, b| a.time.cmp(&b.time));
+
                 let id = list
                     .iter()
                     .enumerate()
                     .find(|(_, e)| e.time == time && e.message == message)
                     .map(|(i, _)| i)
                     .expect("Reminder was not inserted");
-                save();
+
                 lines.push(format!(
                     "Scheduled reminder for {} (#{id})",
                     format_time(&time, preferences.time_format)
                 ));
             }
+
+            save();
             Ok(lines.join("\n"))
         }
         Command::CancelReminder(id) => {
