@@ -15,7 +15,7 @@ pub enum ParseTimeError {
 }
 
 pub enum Command {
-    ScheduleReminder(Zoned, String),
+    ScheduleReminder(Vec<Zoned>, String),
     CancelReminder(u64),
     SetInterval(u64, Vec<TimeModifier>),
     ClearInterval(u64),
@@ -25,9 +25,41 @@ pub enum Command {
     Help,
 }
 
+pub enum Modifier {
+    TimeModifier(TimeModifier),
+    ModifierPermutations(Vec<TimeModifier>),
+}
+
+impl Modifier {
+    pub fn into_time_modifiers(modifiers: Vec<Modifier>) -> Vec<Vec<TimeModifier>> {
+        let mut final_modifiers = vec![vec![]];
+        for modifier in modifiers {
+            match modifier {
+                Modifier::TimeModifier(time_modifier) => {
+                    for modifiers in &mut final_modifiers {
+                        modifiers.push(time_modifier.clone());
+                    }
+                }
+                Modifier::ModifierPermutations(time_modifiers) => {
+                    let all_variants = std::mem::take(&mut final_modifiers);
+                    for permutation in time_modifiers {
+                        let copied_modifiers = all_variants.iter().cloned().map(|mut v| {
+                            v.push(permutation.clone());
+                            v
+                        });
+                        final_modifiers.extend(copied_modifiers);
+                    }
+                }
+            }
+        }
+        final_modifiers
+    }
+}
+
 parser! {
     [error = ParseTimeError, data = jiff::tz::TimeZone]
     num: num=<'0'-'9'+> -> u64 { num.parse()? }
+    comma = " "* "," " "*;
 
     unit = match {
         "w" => 7 * 24 * 60 * 60 * 1000,
@@ -79,7 +111,14 @@ parser! {
         TimeModifier::Date { year, month, day }
     }
 
-    modifier = (months | delays | time_of_day | date | weekday_modifier) -> TimeModifier;
+    time_modifier = (months | delays | time_of_day | date | weekday_modifier) -> TimeModifier;
+
+    modifier_permutations = "(" time_modifier$comma+ ")" -> Vec<TimeModifier>;
+
+    modifier = match {
+        modifier=time_modifier => Modifier::TimeModifier(modifier),
+        permutations=modifier_permutations => Modifier::ModifierPermutations(permutations),
+    } -> Modifier;
 
     time_format = match {
         "12h" => TimeFormat::H12,
@@ -89,23 +128,29 @@ parser! {
     match_commands = match {
         ("r" | "remindme" | "reminder") " " time=time ";" " "? message=<.+> => Command::ScheduleReminder(time, message.to_string()),
         ("h" | "help") => Command::Help,
-        ("setinterval" | "si") " " id=num " " modifiers=modifier$" "+ => Command::SetInterval(id, modifiers),
+        ("setinterval" | "si") " " id=num " " modifiers=time_modifier$" "+ => Command::SetInterval(id, modifiers),
         ("clearinterval" | "ci") " " id=num => Command::ClearInterval(id),
         ("cancelreminder" | "cr") " " id=num => Command::CancelReminder(id),
         ("reminders" | "rs") => Command::ListReminders,
-        ("r" | "remindme" | "reminder") " " time=time ";" " "? message=<.+> => Command::ScheduleReminder(time, message.to_string()),
         ("tz" | "timezone") " " timezone=<.+> => Command::SetTimezone(timezone.to_string()),
         ("tf" | "timeformat") " " time_format=time_format => Command::SetTimeFormat(time_format)
     } -> Command;
 
     pub command = "$" match_commands -> Command;
 
-    pub time: modifiers=modifier$" "+ -> Zoned {
-        let mut date = Zoned::now().with_time_zone(__ctx.data().clone());
-        for modifier in modifiers {
-            date = modifier.modify(date).unwrap();
+    pub time: modifiers=modifier$" "+ -> Vec<Zoned> {
+        let modifier_permutations = Modifier::into_time_modifiers(modifiers);
+        let date = Zoned::now().with_time_zone(__ctx.data().clone());
+
+        let mut dates = vec![];
+        for permutation in modifier_permutations {
+            let mut date = date.clone();
+            for modifier in permutation {
+                date = modifier.modify(date).unwrap();
+            }
+            dates.push(date);
         }
-        date
+        dates
     }
 
 }
