@@ -228,6 +228,7 @@ async fn handle_command(user: UserId, command: Command) -> Result<String, Comman
             "1mo - 1 month",
             "tuesday - Tuesday",
             "1w tuesday - The next Tuesday in 1 week",
+            "1d (2pm, 4pm) - 2pm and 4pm tomorrow",
             "",
             "Commands:",
             "`$r|remindme|reminder <modifiers>; message` - Schedule a reminder",

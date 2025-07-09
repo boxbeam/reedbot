@@ -150,6 +150,7 @@ parser! {
             }
             dates.push(date);
         }
+        dates.sort();
         dates
     }
 
