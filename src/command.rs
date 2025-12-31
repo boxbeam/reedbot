@@ -59,7 +59,7 @@ impl Modifier {
 parser! {
     [error = ParseTimeError, data = jiff::tz::TimeZone]
     num: num=<'0'-'9'+> -> u64 { num.parse()? }
-    comma = " "* "," " "*;
+    comma = ' '* ',' ' '*;
 
     unit = match {
         "w" => 7 * 24 * 60 * 60 * 1000,
@@ -75,6 +75,10 @@ parser! {
 
     months: num=num "mo" -> TimeModifier {
         TimeModifier::Months(num)
+    }
+
+    years: num=num "y" -> TimeModifier {
+        TimeModifier::Years(num)
     }
 
     weekday = match {
@@ -104,14 +108,14 @@ parser! {
         TimeModifier::TimeOfDay { minute, hour }
     }
 
-    date: year=num? "-" month=num? "-" day=num -> TimeModifier {
+    date: year=num? '-' month=num? '-' day=num -> TimeModifier {
         let year = year.map(|year| year as i16);
         let month = month.map(|month| month as i8);
         let day = day as i8;
         TimeModifier::Date { year, month, day }
     }
 
-    time_modifier = (months | delays | time_of_day | date | weekday_modifier) -> TimeModifier;
+    time_modifier = (months | years | delays | date | time_of_day | weekday_modifier) -> TimeModifier;
 
     modifier_permutations = "(" (time_modifier$" "+)$comma+ ")" -> Vec<Vec<TimeModifier>>;
 

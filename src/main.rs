@@ -26,6 +26,7 @@ pub enum TimeModifier {
         day: i8,
     },
     Months(u64),
+    Years(u64),
 }
 
 impl TimeModifier {
@@ -52,6 +53,10 @@ impl TimeModifier {
                 datetime += Span::new().months(*months as i64);
                 Ok(datetime)
             }
+            TimeModifier::Years(years) => Ok(datetime
+                .with()
+                .year(datetime.year() + *years as i16)
+                .build()?),
         }
     }
 }
